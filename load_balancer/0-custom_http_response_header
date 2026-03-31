@@ -1,38 +1,17 @@
 #!/usr/bin/env bash
-# configure nginx to add a cutom HTTP response header
-# shellcheck disable=SC2154
+# This script configures Nginx with a custom HTTP response header X-Served-By
 
-set -e
+apt-get update -y
+apt-get install nginx -y
 
-sudo apt-get update -y
-sudo apt-get install -y nginx
-
-sudo mkdir -p /var/www/html
-
+# Get hostname of the server
 HOSTNAME=$(hostname)
 
-sudo tee /etc/nginx/sites-available/default > /dev/null << EOF
-server {
-        listen 80 default_server;
-        listen [::]:80 default_server;
+# Add custom header to nginx config
+sed -i "s/# server_tokens off;/server_tokens off;\n\tadd_header X-Served-By $HOSTNAME;/" /etc/nginx/nginx.conf
 
-        root /var/www/html;
-        index index.html index.htm;
+# Create default page
+echo "Holberton School for the win!" > /var/www/html/index.html
 
-        server_name _;
-
-        add_header X-Served-By $HOSTNAME always;
-
-        location / {
-                try_files \$uri \$uri/ =404;
-        }
-}
-EOF
-
-sudo ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
-
-sudo nginx -t
-
-sudo pkill nginx || true
-
-sudo nginx
+# Restart nginx
+service nginx restart
