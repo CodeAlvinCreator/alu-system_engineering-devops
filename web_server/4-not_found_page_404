@@ -1,36 +1,20 @@
 #!/usr/bin/env bash
-# configures nginx with a custom 404 page
+# Configures Nginx to serve a custom 404 page containing
+# "Ceci n'est pas une page"
 
-set -e
+apt-get update -y
+apt-get install -y nginx
 
-sudo apt-get update -y
-sudo apt-get install -y nginx
+echo "Hello World!" > /var/www/html/index.html
 
-sudo mkdir -p /var/www/html
-echo "Ceci n'est pas une page" | sudo tee /var/www/html/404.html > /dev/null
-
-sudo tee /etc/nginx/sites-available/default > /dev/null << 'EOF'
-server {
-	listen 80 default_server;
-	listen [::]:80 default_server;
-
-	root /var/www/html;
-	index index.html index.htm;
-
-	server_name _;
-
-	error_page 404 /404.html;
-	location = /404.html {
-		internal;
-	}
-
-	location / {
-		try_files $uri $uri/ =404;
-	}
-}
+# Create the custom 404 page safely using a heredoc
+cat > /var/www/html/404.html << 'EOF'
+Ceci n'est pas une page
 EOF
 
-sudo ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+# Insert error_page directive right after server_name _;
+sed -i '/server_name _;/a\
+\terror_page 404 /404.html;' /etc/nginx/sites-available/default
 
-sudo nginx -t
-sudo service nginx restart
+service nginx start
+service nginx restart
