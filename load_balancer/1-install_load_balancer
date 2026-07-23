@@ -1,36 +1,45 @@
 #!/usr/bin/env bash
-# Configures HAProxy on a fresh Ubuntu machine to load balance
-# traffic across web-01 and web-02 using round-robin.
+# install & configure HAproxy to load balance web-01 and web-02
 
 set -e
 
-# Update package list and install HAProxy
-apt-get update -y
-apt-get install -y haproxy
+web01_IP="44.206.242.109"
+web02_IP="52.207.239.117"
 
-# Back up the original config just in case
-cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.bak
+sudo apt-get update -y
+sudo apt-get install -y haproxy
 
-# Append frontend/backend config
-cat >> /etc/haproxy/haproxy.cfg <<EOF
+sudo sed -i 's/ENABLED=0/ENABLED=1/' /etc/default/haproxy
 
-frontend Chidera_lb
-    bind *:80
-    mode http
-    default_backend Chidera_backend
+sudo tee /etc/haproxy/haproxy.cfg > /dev/null <<EOF
+global
+	log /dev/log    local0
+	log /dev/log    local1 notice
+	daemon
+	maxconn 4096
 
-backend Chidera_backend
-    balance roundrobin
-    server Chidera-web-01 44.206.242.109:80 check
-    server Chidera-web-02 52.207.239.117:80 check
+defaults
+	log     global
+	mode    http
+	option  httplog
+	option  dontlognull
+	retries 3
+	timeout connect 5000ms
+	timeout client  50000ms
+	timeout server  50000ms
+
+# Frontend listening on port 80
+frontend http_front
+	bind *:80
+	default_backend http_back
+
+# Backend with roundrobin balancing
+backend http_back
+	balance roundrobin
+	server web01 $WEB01_IP:80 check
+	server web02 $WEB02_IP:80 check
+
 EOF
 
-# Enable HAProxy to be managed via the init script
-if grep -q "^ENABLED=" /etc/default/haproxy; then
-    sed -i 's/^ENABLED=.*/ENABLED=1/' /etc/default/haproxy
-else
-    echo "ENABLED=1" >> /etc/default/haproxy
-fi
-
-# Restart HAProxy to apply changes
-service haproxy restart
+sudo service haproxy restart
+echo "HAProxy successfully configured."
